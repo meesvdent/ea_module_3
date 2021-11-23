@@ -17,8 +17,8 @@ class eggholderEA:
         self.alpha = 0.05  # Mutation probability
         self.lambdaa = 100  # Population size
         self.mu = self.lambdaa * 2  # Offspring size
-        self.k = 2  # Tournament selection
-        self.fitness_alpha = 0.5  # fitness sharing shape parameter
+        self.k = 3  # Tournament selection
+        self.fitness_alpha = 0.5   # fitness sharing shape parameter
         self.intMax = 500  # Boundary of the domain, not intended to be changed.
         self.sigma = self.intMax * 0.3  # fitness sharing distance
         self.numIters = 20  # Maximum number of iterations
@@ -54,8 +54,7 @@ class eggholderEA:
         selected = np.zeros((self.mu, 2))
         for ii in range(self.mu):
             ri = random.choices(range(np.size(population, 0)), k=self.k)
-            beta = [self.calc_beta(x, population) for x in ri]
-            g = self.objf(population[ri, :]) * beta
+            g = [self.wrap_fitness(x, population) for x in ri]
             min = np.argmin(g)
             selected[ii, :] = population[ri[min], :]
         return selected
@@ -86,10 +85,8 @@ class eggholderEA:
         perm = np.argsort(fvals)
         for i in range(keep):
             survivors[i] = joinedPopulation[perm[0], :]
-            np.delete(joinedPopulation, perm[0])
-            oneplusbeta = [self.calc_beta(0, np.vstack((joinedPopulation[x, :], survivors))) for x in range(len(joinedPopulation))]
-            fvals = self.objf(joinedPopulation)
-            g = fvals * oneplusbeta
+            joinedPopulation = np.delete(joinedPopulation, perm[0], axis=0)
+            g = [self.wrap_fitness(0, np.vstack((joinedPopulation[x, :], survivors[0:i+1, : ]))) for x in range(len(joinedPopulation))]
             perm = np.argsort(g)
         return survivors
 
@@ -99,13 +96,20 @@ class eggholderEA:
 
     def calc_beta(self, x, population):
         distances = self.calc_distance(population[x], population)
-        return np.sum((1 - (distances[distances < self.sigma] / self.sigma)) ** self.fitness_alpha) ** -1
+        return np.sum((1 - (distances[distances < self.sigma] / self.sigma)) ** self.fitness_alpha)
+
+    def wrap_fitness(self, x, population):
+        beta = self.calc_beta(x, population)
+        f = self.objf(population[x, :])
+        g = f * (beta ** np.sign(f))
+        return g[0]
+
 
 """ Compute the objective function at the vector of (x,y) values. """
 
 def myfun(x):
     if np.size(x) == 2:
-        x = reshape(x, (1, 2))
+        x = np.reshape(x, (1, 2))
     sas = np.sqrt(np.abs(x[:, 0] + x[:, 1]))
     sad = np.sqrt(np.abs(x[:, 0] - x[:, 1]))
     f = -x[:, 1] * np.sin(sas) - x[:, 0] * np.sin(sad)
