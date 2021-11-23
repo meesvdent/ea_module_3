@@ -5,6 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
+import math
 
 """ A basic evolutionary algorithm. """
 
@@ -16,7 +17,9 @@ class eggholderEA:
         self.alpha = 0.05  # Mutation probability
         self.lambdaa = 100  # Population size
         self.mu = self.lambdaa * 2  # Offspring size
-        self.k = 3  # Tournament selection
+        self.k = 2  # Tournament selection
+        self.sigma = 10  # fitness sharing distance
+        self.fitness_alpha = 1  # fitness sharing shape parameter
         self.intMax = 500  # Boundary of the domain, not intended to be changed.
         self.numIters = 20  # Maximum number of iterations
         self.objf = fun
@@ -31,7 +34,7 @@ class eggholderEA:
         for i in range(self.numIters):
             # The evolutionary algorithm
             start = time.time()
-            selected = self.selection(population, self.k)
+            selected = self.selection(population)
             offspring = self.crossover(selected)
             joinedPopulation = np.vstack((self.mutation(offspring, self.alpha), population))
             population = self.elimination(joinedPopulation, self.lambdaa)
@@ -47,10 +50,12 @@ class eggholderEA:
 
     """ Perform k-tournament selection to select pairs of parents. """
 
-    def selection(self, population, k):
+    def selection(self, population):
         selected = np.zeros((self.mu, 2))
         for ii in range(self.mu):
             ri = random.choices(range(np.size(population, 0)), k=self.k)
+            beta = [self.calc_beta(x, population) for x in ri]
+            print("Beta: ", beta)
             min = np.argmin(self.objf(population[ri, :]))
             selected[ii, :] = population[ri[min], :]
         return selected
@@ -81,6 +86,14 @@ class eggholderEA:
         survivors = joinedPopulation[perm[1:keep], :]
         return survivors
 
+    """ Calculate distance between individuals. """
+    def calc_distance(self, individual, others):
+        return np.linalg.norm(individual - others, axis=1)
+
+    def calc_beta(self, x, population):
+        distances = self.calc_distance(population[x], population)
+        subset = population[distances < self.sigma]
+        return np.sum((1 - (distances[distances < self.sigma] / self.sigma)) ** self.fitness_alpha) ** -1
 
 """ Compute the objective function at the vector of (x,y) values. """
 
