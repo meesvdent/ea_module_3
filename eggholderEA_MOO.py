@@ -54,7 +54,7 @@ class eggholderEA:
         selected = np.zeros((self.mu, 2))
         for ii in range(self.mu):
             ri = random.choices(range(np.size(population, 0)), k=self.k)
-            g = [self.wrap_fitness(x, population) for x in ri]
+            g = [self.dominated_fitness_wrapper([x], population) for x in ri]
             min = np.argmin(g)
             selected[ii, :] = population[ri[min], :]
         return selected
@@ -81,12 +81,13 @@ class eggholderEA:
 
     def elimination(self, joinedPopulation, keep):
         survivors = np.zeros((keep, 2))
-        fvals = self.objf(joinedPopulation)
+        fvals = self.dominated_fitness_wrapper(list(range(len(joinedPopulation))), joinedPopulation)
         perm = np.argsort(fvals)
         for i in range(keep):
             survivors[i] = joinedPopulation[perm[0], :]
             joinedPopulation = np.delete(joinedPopulation, perm[0], axis=0)
-            g = [self.wrap_fitness(0, np.vstack((joinedPopulation[x, :], survivors[0:i+1, : ]))) for x in range(len(joinedPopulation))]
+            g = [self.dominated_fitness_wrapper([0], np.vstack((joinedPopulation[x, :], survivors[0:i+1, : ]))) for x in range(len(joinedPopulation))]
+            # print("elimination g: ", g)
             perm = np.argsort(g)
         return survivors
 
@@ -103,7 +104,20 @@ class eggholderEA:
         f = self.objf(population[x, :])
         g = f * (beta ** np.sign(f))
         return g[0]
-    # TODO: fitness wrapper, **-1 is wrong, should be sign of fval.
+
+    def dominated_fitness_wrapper(self, x, population):
+        pareto = np.zeros(len(x))
+        values = self.objf(population)
+        for i in range(len(x)):
+            o = 0
+            for j in range(len(population)):
+                # print("values: ", values[x[i], 0], values[j, 0], values[x[i], 1], values[j, 1])
+                if values[x[i], 0] > values[j, 0] and values[x[i], 1] > values[j, 1]:
+                    o += 1
+            pareto[i] = o
+        # print("Pareto: ", pareto)
+        return o
+
 
 
 """ Compute the objective function at the vector of (x,y) values. """
@@ -114,7 +128,11 @@ def myfun(x):
     sas = np.sqrt(np.abs(x[:, 0] + x[:, 1]))
     sad = np.sqrt(np.abs(x[:, 0] - x[:, 1]))
     f = -x[:, 1] * np.sin(sas) - x[:, 0] * np.sin(sad)
-    g = np.linalg.norm(x - np.array([250, 250]), axis=1)
+    return f
+
+def myMultiobjFun(x):
+    f = myfun(x)
+    g = np.linalg.norm(np.array([250, 250] - x), axis=1)
     return np.transpose(np.vstack((f, g)))
 
 
@@ -171,8 +189,17 @@ def plotPopulation2D(input):
     ax.scatter(mini, minj, marker='*', color='yellow')
     plt.pause(0.05)
 
+def plotParetoFront(input):
+    pop = input[0]
 
-print(myfun( np.array([[250, 250], [240, 250] ])))
-# eggEA = eggholderEA(myfun)
-# eggEA.optimize(plotPopulation2D)
-# plt.show()
+    fval = myMultiobjFun(pop)
+    fig = plt.gcf()
+    fig.clear()
+    ax = fig.gca()
+    plt.scatter(fval[:, 1], fval[:, 0], marker='o', color='r')
+    plt.pause(0.001)
+
+
+eggEA = eggholderEA(myMultiobjFun)
+eggEA.optimize(plotParetoFront)
+plt.show()
