@@ -18,9 +18,9 @@ class eggholderEA:
         self.lambdaa = 100  # Population size
         self.mu = self.lambdaa * 2  # Offspring size
         self.k = 2  # Tournament selection
-        self.sigma = 10  # fitness sharing distance
-        self.fitness_alpha = 1  # fitness sharing shape parameter
+        self.fitness_alpha = 0.5  # fitness sharing shape parameter
         self.intMax = 500  # Boundary of the domain, not intended to be changed.
+        self.sigma = self.intMax * 0.3  # fitness sharing distance
         self.numIters = 20  # Maximum number of iterations
         self.objf = fun
 
@@ -55,8 +55,8 @@ class eggholderEA:
         for ii in range(self.mu):
             ri = random.choices(range(np.size(population, 0)), k=self.k)
             beta = [self.calc_beta(x, population) for x in ri]
-            print("Beta: ", beta)
-            min = np.argmin(self.objf(population[ri, :]))
+            g = self.objf(population[ri, :]) * beta
+            min = np.argmin(g)
             selected[ii, :] = population[ri[min], :]
         return selected
 
@@ -81,9 +81,16 @@ class eggholderEA:
     """ Eliminate the unfit candidate solutions. """
 
     def elimination(self, joinedPopulation, keep):
+        survivors = np.zeros((keep, 2))
         fvals = self.objf(joinedPopulation)
         perm = np.argsort(fvals)
-        survivors = joinedPopulation[perm[1:keep], :]
+        for i in range(keep):
+            survivors[i] = joinedPopulation[perm[0], :]
+            np.delete(joinedPopulation, perm[0])
+            oneplusbeta = [self.calc_beta(0, np.vstack((joinedPopulation[x, :], survivors))) for x in range(len(joinedPopulation))]
+            fvals = self.objf(joinedPopulation)
+            g = fvals * oneplusbeta
+            perm = np.argsort(g)
         return survivors
 
     """ Calculate distance between individuals. """
@@ -92,7 +99,6 @@ class eggholderEA:
 
     def calc_beta(self, x, population):
         distances = self.calc_distance(population[x], population)
-        subset = population[distances < self.sigma]
         return np.sum((1 - (distances[distances < self.sigma] / self.sigma)) ** self.fitness_alpha) ** -1
 
 """ Compute the objective function at the vector of (x,y) values. """
