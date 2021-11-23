@@ -100,6 +100,8 @@ class eggholderEA:
     def calc_beta(self, x, population):
         distances = self.calc_distance(population[x], population)
         return np.sum((1 - (distances[distances < self.sigma] / self.sigma)) ** self.fitness_alpha) ** -1
+    # TODO: fitness wrapper, **-1 is wrong, should be sign of fval.
+
 
 """ Compute the objective function at the vector of (x,y) values. """
 
@@ -109,6 +111,9 @@ def myfun(x):
     sas = np.sqrt(np.abs(x[:, 0] + x[:, 1]))
     sad = np.sqrt(np.abs(x[:, 0] - x[:, 1]))
     f = -x[:, 1] * np.sin(sas) - x[:, 0] * np.sin(sad)
+    g = np.linalg.norm(x - np.array([250, 250]), axis=1)
+    print("f: ", f)
+    print("g: ", g)
     return f
 
 
